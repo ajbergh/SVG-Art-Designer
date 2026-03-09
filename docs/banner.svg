@@ -1,0 +1,124 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 400" width="1200" height="400">
+  <title>SVG Art Designer Banner</title>
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0f0f23"/>
+      <stop offset="50%" stop-color="#1a1a3e"/>
+      <stop offset="100%" stop-color="#0d0d2b"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#6366f1"/>
+      <stop offset="100%" stop-color="#a855f7"/>
+    </linearGradient>
+    <linearGradient id="glow" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#6366f1" stop-opacity="0.3"/>
+      <stop offset="100%" stop-color="#a855f7" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="goGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#00ADD8"/>
+      <stop offset="100%" stop-color="#00A29C"/>
+    </linearGradient>
+    <filter id="softGlow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="20" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1200" height="400" fill="url(#bg)"/>
+
+  <!-- Grid pattern -->
+  <g opacity="0.06" stroke="#6366f1" stroke-width="0.5" fill="none">
+    <line x1="0" y1="50" x2="1200" y2="50"/>
+    <line x1="0" y1="100" x2="1200" y2="100"/>
+    <line x1="0" y1="150" x2="1200" y2="150"/>
+    <line x1="0" y1="200" x2="1200" y2="200"/>
+    <line x1="0" y1="250" x2="1200" y2="250"/>
+    <line x1="0" y1="300" x2="1200" y2="300"/>
+    <line x1="0" y1="350" x2="1200" y2="350"/>
+    <line x1="100" y1="0" x2="100" y2="400"/>
+    <line x1="200" y1="0" x2="200" y2="400"/>
+    <line x1="300" y1="0" x2="300" y2="400"/>
+    <line x1="400" y1="0" x2="400" y2="400"/>
+    <line x1="500" y1="0" x2="500" y2="400"/>
+    <line x1="600" y1="0" x2="600" y2="400"/>
+    <line x1="700" y1="0" x2="700" y2="400"/>
+    <line x1="800" y1="0" x2="800" y2="400"/>
+    <line x1="900" y1="0" x2="900" y2="400"/>
+    <line x1="1000" y1="0" x2="1000" y2="400"/>
+    <line x1="1100" y1="0" x2="1100" y2="400"/>
+  </g>
+
+  <!-- Decorative shapes -->
+  <circle cx="150" cy="80" r="60" fill="url(#glow)" opacity="0.5"/>
+  <circle cx="1050" cy="320" r="80" fill="url(#glow)" opacity="0.4"/>
+  <circle cx="900" cy="60" r="40" fill="url(#glow)" opacity="0.3"/>
+
+  <!-- Pen tool icon -->
+  <g transform="translate(120, 150)" filter="url(#softGlow)">
+    <rect x="-32" y="-32" width="64" height="64" rx="14" fill="url(#accent)"/>
+    <g transform="translate(0, 0)" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M-10 14 L0 -14 L10 14"/>
+      <line x1="-6" y1="6" x2="6" y2="6"/>
+      <circle cx="0" cy="14" r="2" fill="white"/>
+    </g>
+  </g>
+
+  <!-- Title -->
+  <text x="200" y="165" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif" font-size="52" font-weight="800" fill="white" letter-spacing="-1">
+    SVG Art Designer
+  </text>
+
+  <!-- Subtitle -->
+  <text x="200" y="200" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif" font-size="18" fill="#9ca3af" font-weight="400">
+    AI-Powered Vector Graphics Generation
+  </text>
+
+  <!-- Tech badges -->
+  <g transform="translate(200, 230)">
+    <!-- React -->
+    <rect x="0" y="0" width="78" height="28" rx="14" fill="#1e3a5f" opacity="0.6"/>
+    <text x="39" y="19" font-family="system-ui, sans-serif" font-size="12" fill="#61dafb" text-anchor="middle" font-weight="600">React 19</text>
+
+    <!-- TypeScript -->
+    <rect x="88" y="0" width="102" height="28" rx="14" fill="#1e3a5f" opacity="0.6"/>
+    <text x="139" y="19" font-family="system-ui, sans-serif" font-size="12" fill="#3b82f6" text-anchor="middle" font-weight="600">TypeScript 5.8</text>
+
+    <!-- Go -->
+    <rect x="200" y="0" width="82" height="28" rx="14" fill="#0d2d3a" opacity="0.6"/>
+    <text x="241" y="19" font-family="system-ui, sans-serif" font-size="12" fill="#00ADD8" text-anchor="middle" font-weight="600">Go Backend</text>
+
+    <!-- SQLite -->
+    <rect x="292" y="0" width="66" height="28" rx="14" fill="#1a2e1a" opacity="0.6"/>
+    <text x="325" y="19" font-family="system-ui, sans-serif" font-size="12" fill="#4ade80" text-anchor="middle" font-weight="600">SQLite</text>
+
+    <!-- Gemini -->
+    <rect x="368" y="0" width="80" height="28" rx="14" fill="#3a2e10" opacity="0.6"/>
+    <text x="408" y="19" font-family="system-ui, sans-serif" font-size="12" fill="#f59e0b" text-anchor="middle" font-weight="600">Gemini 3</text>
+  </g>
+
+  <!-- Decorative SVG code snippet (right side) -->
+  <g transform="translate(750, 70)" opacity="0.85">
+    <rect width="380" height="260" rx="12" fill="#111827" stroke="#374151" stroke-width="1"/>
+    <!-- Window dots -->
+    <circle cx="20" cy="18" r="5" fill="#ef4444" opacity="0.8"/>
+    <circle cx="36" cy="18" r="5" fill="#eab308" opacity="0.8"/>
+    <circle cx="52" cy="18" r="5" fill="#22c55e" opacity="0.8"/>
+    <!-- Code lines -->
+    <text x="20" y="56" font-family="'Cascadia Code', 'Fira Code', monospace" font-size="13" fill="#6366f1">&lt;<tspan fill="#f472b6">svg</tspan> <tspan fill="#a5b4fc">viewBox</tspan>=<tspan fill="#4ade80">"0 0 512 512"</tspan>&gt;</text>
+    <text x="20" y="80" font-family="'Cascadia Code', 'Fira Code', monospace" font-size="13" fill="#6b7280">  &lt;<tspan fill="#f472b6">title</tspan>&gt;<tspan fill="#d1d5db">Mountain Sunset</tspan>&lt;/<tspan fill="#f472b6">title</tspan>&gt;</text>
+    <text x="20" y="104" font-family="'Cascadia Code', 'Fira Code', monospace" font-size="13" fill="#6b7280">  &lt;<tspan fill="#f472b6">g</tspan> <tspan fill="#a5b4fc">id</tspan>=<tspan fill="#4ade80">"background"</tspan>&gt;</text>
+    <text x="20" y="128" font-family="'Cascadia Code', 'Fira Code', monospace" font-size="13" fill="#6b7280">    &lt;<tspan fill="#f472b6">rect</tspan> <tspan fill="#a5b4fc">fill</tspan>=<tspan fill="#4ade80">"#f97316"</tspan>/&gt;</text>
+    <text x="20" y="152" font-family="'Cascadia Code', 'Fira Code', monospace" font-size="13" fill="#6b7280">  &lt;/<tspan fill="#f472b6">g</tspan>&gt;</text>
+    <text x="20" y="176" font-family="'Cascadia Code', 'Fira Code', monospace" font-size="13" fill="#6b7280">  &lt;<tspan fill="#f472b6">g</tspan> <tspan fill="#a5b4fc">id</tspan>=<tspan fill="#4ade80">"mountains"</tspan>&gt;</text>
+    <text x="20" y="200" font-family="'Cascadia Code', 'Fira Code', monospace" font-size="13" fill="#6b7280">    &lt;<tspan fill="#f472b6">polygon</tspan> <tspan fill="#a5b4fc">points</tspan>=<tspan fill="#4ade80">"..."</tspan>/&gt;</text>
+    <text x="20" y="224" font-family="'Cascadia Code', 'Fira Code', monospace" font-size="13" fill="#6b7280">  &lt;/<tspan fill="#f472b6">g</tspan>&gt;</text>
+    <text x="20" y="248" font-family="'Cascadia Code', 'Fira Code', monospace" font-size="13" fill="#6366f1">&lt;/<tspan fill="#f472b6">svg</tspan>&gt;</text>
+  </g>
+
+  <!-- Bottom accent line -->
+  <rect x="0" y="392" width="1200" height="8" fill="url(#accent)"/>
+</svg>
