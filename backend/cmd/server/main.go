@@ -64,6 +64,11 @@ func main() {
 	}
 	geminiClient := gemini.NewClient(geminiAPIKey)
 
+	// Start background cleanup of stale Gemini sessions.
+	cleanupCtx, cleanupCancel := context.WithCancel(context.Background())
+	defer cleanupCancel()
+	geminiClient.StartCleanup(cleanupCtx)
+
 	// Initialize handlers.
 	designHandler := handler.NewDesignHandler(designStore)
 	apiKeyHandler := handler.NewAPIKeyHandler(apiKeyStore)
@@ -119,7 +124,7 @@ func main() {
 	server := &http.Server{
 		Addr:         ":" + cfg.Port,
 		Handler:      h,
-		ReadTimeout:  30 * time.Second,
+		ReadTimeout:  120 * time.Second, // Long timeout for Gemini Pro generation
 		WriteTimeout: 120 * time.Second, // Long timeout for Gemini generation
 		IdleTimeout:  60 * time.Second,
 	}

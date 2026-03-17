@@ -30,3 +30,6 @@ backend/server.exe
 *.db
 master.key
 backend/.env
+
+# Internal Dev Docs
+docs/internal/*

@@ -5,9 +5,15 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/google/generative-ai-go/genai"
 	"google.golang.org/api/option"
+)
+
+const (
+	sessionTimeout  = 30 * time.Minute
+	cleanupInterval = 5 * time.Minute
 )
 
 const baseSystemInstruction = `
@@ -36,23 +42,32 @@ const animationInstruction = `
 11. ANIMATION: Generate animated SVG code. Use SMIL animations (<animate>, <animateTransform>) or CSS keyframes within a <style> tag inside the SVG. Make animations smooth, subtle, and looping (repeatCount="indefinite").
 `
 
-// Client wraps the Gemini API with session management.
+// sessionEntry holds a single user's chat session and its configuration.
+type sessionEntry struct {
+	session      *genai.ChatSession
+	model        string
+	layers       *bool
+	animation    *bool
+	lastAccessed time.Time
+}
+
+// Client wraps the Gemini API with per-user session management.
 type Client struct {
-	mu               sync.Mutex
-	apiKey           string
-	genaiClient      *genai.Client
-	chatSession      *genai.ChatSession
-	sessionModel     string
-	sessionLayers    *bool
-	sessionAnimation *bool
+	mu          sync.Mutex
+	apiKey      string
+	genaiClient *genai.Client
+	sessions    map[string]*sessionEntry
 }
 
 // NewClient creates a new Gemini client with the given API key.
 func NewClient(apiKey string) *Client {
-	return &Client{apiKey: apiKey}
+	return &Client{
+		apiKey:   apiKey,
+		sessions: make(map[string]*sessionEntry),
+	}
 }
 
-// UpdateAPIKey replaces the API key and resets the session.
+// UpdateAPIKey replaces the API key and resets all sessions.
 func (c *Client) UpdateAPIKey(apiKey string) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -60,18 +75,15 @@ func (c *Client) UpdateAPIKey(apiKey string) {
 	c.closeClient()
 }
 
-// ResetSession clears the current chat session.
-func (c *Client) ResetSession() {
+// ResetSession clears a specific user's chat session.
+func (c *Client) ResetSession(sessionID string) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	c.chatSession = nil
-	c.sessionModel = ""
-	c.sessionLayers = nil
-	c.sessionAnimation = nil
+	delete(c.sessions, sessionID)
 }
 
-// GenerateSVG generates an SVG from a prompt using the Gemini chat session.
-func (c *Client) GenerateSVG(ctx context.Context, prompt, style, model string, enableLayers, enableAnimation bool) (string, error) {
+// GenerateSVG generates an SVG from a prompt using the user's chat session.
+func (c *Client) GenerateSVG(ctx context.Context, sessionID, prompt, style, model string, enableLayers, enableAnimation bool) (string, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -80,14 +92,17 @@ func (c *Client) GenerateSVG(ctx context.Context, prompt, style, model string, e
 	}
 
 	// Create or recreate session if config changed.
-	if err := c.ensureSession(ctx, model, enableLayers, enableAnimation); err != nil {
+	if err := c.ensureSession(ctx, sessionID, model, enableLayers, enableAnimation); err != nil {
 		return "", err
 	}
+
+	entry := c.sessions[sessionID]
+	entry.lastAccessed = time.Now()
 
 	// Build the full prompt with style context.
 	fullPrompt := buildPrompt(prompt, style, enableAnimation)
 
-	resp, err := c.chatSession.SendMessage(ctx, genai.Text(fullPrompt))
+	resp, err := entry.session.SendMessage(ctx, genai.Text(fullPrompt))
 	if err != nil {
 		return "", fmt.Errorf("gemini generate: %w", err)
 	}
@@ -130,11 +145,12 @@ Output ONLY the enhanced prompt string.`, originalPrompt)
 	return strings.TrimSpace(text), nil
 }
 
-func (c *Client) ensureSession(ctx context.Context, model string, enableLayers, enableAnimation bool) error {
-	needsNew := c.chatSession == nil ||
-		c.sessionModel != model ||
-		c.sessionLayers == nil || *c.sessionLayers != enableLayers ||
-		c.sessionAnimation == nil || *c.sessionAnimation != enableAnimation
+func (c *Client) ensureSession(ctx context.Context, sessionID, model string, enableLayers, enableAnimation bool) error {
+	entry, exists := c.sessions[sessionID]
+	needsNew := !exists ||
+		entry.model != model ||
+		entry.layers == nil || *entry.layers != enableLayers ||
+		entry.animation == nil || *entry.animation != enableAnimation
 
 	if !needsNew {
 		return nil
@@ -160,11 +176,42 @@ func (c *Client) ensureSession(ctx context.Context, model string, enableLayers, 
 		Parts: []genai.Part{genai.Text(sysInstruction)},
 	}
 
-	c.chatSession = genModel.StartChat()
-	c.sessionModel = model
-	c.sessionLayers = &enableLayers
-	c.sessionAnimation = &enableAnimation
+	c.sessions[sessionID] = &sessionEntry{
+		session:      genModel.StartChat(),
+		model:        model,
+		layers:       &enableLayers,
+		animation:    &enableAnimation,
+		lastAccessed: time.Now(),
+	}
 	return nil
+}
+
+// StartCleanup launches a goroutine that removes stale sessions periodically.
+// Call this once at server startup.
+func (c *Client) StartCleanup(ctx context.Context) {
+	go func() {
+		ticker := time.NewTicker(cleanupInterval)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				c.cleanupSessions()
+			}
+		}
+	}()
+}
+
+func (c *Client) cleanupSessions() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	now := time.Now()
+	for id, entry := range c.sessions {
+		if now.Sub(entry.lastAccessed) > sessionTimeout {
+			delete(c.sessions, id)
+		}
+	}
 }
 
 func (c *Client) getClient(ctx context.Context) (*genai.Client, error) {
@@ -185,10 +232,7 @@ func (c *Client) closeClient() {
 		c.genaiClient.Close()
 		c.genaiClient = nil
 	}
-	c.chatSession = nil
-	c.sessionModel = ""
-	c.sessionLayers = nil
-	c.sessionAnimation = nil
+	c.sessions = make(map[string]*sessionEntry)
 }
 
 func buildPrompt(prompt, style string, enableAnimation bool) string {

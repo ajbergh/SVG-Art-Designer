@@ -24,6 +24,7 @@ const Header: React.FC<HeaderProps> = ({ onOpenSettings }) => {
           onClick={onOpenSettings}
           className="p-2 text-gray-400 hover:text-white hover:bg-gray-800 rounded-lg transition-colors"
           title="Settings"
+          aria-label="Open settings"
         >
           <Settings className="w-5 h-5" />
         </button>

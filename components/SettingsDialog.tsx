@@ -88,16 +88,17 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ isOpen, onClose, onNoti
       onClick={handleBackdropClick}
       onKeyDown={handleKeyDown}
     >
-      <div className="w-full max-w-md mx-4 bg-gray-900 rounded-2xl border border-gray-700/50 shadow-2xl">
+      <div className="w-full max-w-md mx-4 bg-gray-900 rounded-2xl border border-gray-700/50 shadow-2xl" role="dialog" aria-modal="true" aria-labelledby="settings-dialog-title">
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-800">
           <div className="flex items-center gap-2">
             <Key className="w-5 h-5 text-indigo-400" />
-            <h2 className="text-lg font-semibold text-white">Settings</h2>
+            <h2 className="text-lg font-semibold text-white" id="settings-dialog-title">Settings</h2>
           </div>
           <button
             onClick={onClose}
             className="p-1.5 text-gray-400 hover:text-white hover:bg-gray-800 rounded-lg transition-colors"
+            aria-label="Close settings"
           >
             <X className="w-5 h-5" />
           </button>

@@ -3,9 +3,23 @@ import { ArtStyle, GeminiModel } from "../types";
 // All Gemini calls are now proxied through the Go backend at /api/*
 // The API key is stored encrypted server-side — never exposed to the client.
 
+// Per-tab session ID so each browser tab gets its own Gemini conversation.
+function getSessionId(): string {
+  const key = 'svg-art-session-id';
+  let id = sessionStorage.getItem(key);
+  if (!id) {
+    id = crypto.randomUUID();
+    sessionStorage.setItem(key, id);
+  }
+  return id;
+}
+
 export const resetSession = async (): Promise<void> => {
   try {
-    await fetch('/api/session/reset', { method: 'POST' });
+    await fetch('/api/session/reset', {
+      method: 'POST',
+      headers: { 'X-Session-ID': getSessionId() },
+    });
   } catch (e) {
     console.error("Failed to reset session:", e);
   }
@@ -15,7 +29,10 @@ export const enhancePrompt = async (originalPrompt: string): Promise<string> => 
   try {
     const response = await fetch('/api/enhance', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Session-ID': getSessionId(),
+      },
       body: JSON.stringify({ prompt: originalPrompt }),
     });
 
@@ -41,7 +58,10 @@ export const generateSvg = async (
 ): Promise<string> => {
   const response = await fetch('/api/generate', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Session-ID': getSessionId(),
+    },
     body: JSON.stringify({
       prompt,
       style: style === ArtStyle.NO_STYLE ? 'None' : style,

@@ -5,11 +5,18 @@ import PreviewArea from './components/PreviewArea';
 import InputSection from './components/InputSection';
 import LayerPanel from './components/LayerPanel';
 import SettingsDialog from './components/SettingsDialog';
+import HistoryPanel from './components/HistoryPanel';
+import TemplateGallery from './components/TemplateGallery';
+import VariationsGrid, { Variation } from './components/VariationsGrid';
+import MobileTabBar, { MobileTab } from './components/MobileTabBar';
+import { Template } from './data/templates';
 import { generateSvg, resetSession, enhancePrompt } from './services/geminiService';
 import { fetchDesigns, clearAllDesigns, DesignItem } from './services/apiService';
 import { toggleLayerVisibility, reorderLayer, groupLayers, ungroupLayer, deleteLayer } from './utils/svgLayerUtils';
-import { ArtStyle, GeminiModel } from './types';
-import { History, Trash2, Plus, Clock, Zap, BrainCircuit, Check, Layers as LayersIcon, Play } from 'lucide-react';
+import { sanitizeSvg } from './utils/svgSanitizer';
+import { useHistory } from './hooks/useHistory';
+import { ArtStyle, GeminiModel, GenerationError } from './types';
+import { Plus, Zap, BrainCircuit, Check, Layers as LayersIcon, Play, AlertTriangle, RotateCw } from 'lucide-react';
 
 interface HistoryItem {
   id?: number;
@@ -43,13 +50,39 @@ const App: React.FC = () => {
   const [enableAnimation, setEnableAnimation] = useState<boolean>(false);
   const [svgContent, setSvgContent] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<GenerationError | null>(null);
+  const [lastPrompt, setLastPrompt] = useState<string | null>(null);
   const [showLayers, setShowLayers] = useState(true);
   const [notification, setNotification] = useState<string | null>(null);
   const [showSettings, setShowSettings] = useState(false);
+  const [showTemplates, setShowTemplates] = useState(false);
+  const [variations, setVariations] = useState<Variation[]>([]);
+  const [showVariations, setShowVariations] = useState(false);
+  const [mobileTab, setMobileTab] = useState<MobileTab>('preview');
   
   // Load history from backend on mount
   const [history, setHistory] = useState<HistoryItem[]>([]);
+
+  // Undo/Redo
+  const { pushState, undo, redo, canUndo, canRedo, clear: clearUndoHistory } = useHistory();
+
+  const pushCurrentState = useCallback(() => {
+    if (svgContent) {
+      pushState({ svgCode: svgContent, timestamp: Date.now() });
+    }
+  }, [svgContent, pushState]);
+
+  const handleUndo = useCallback(() => {
+    if (!svgContent) return;
+    const prev = undo({ svgCode: svgContent, timestamp: Date.now() });
+    if (prev) setSvgContent(prev.svgCode);
+  }, [svgContent, undo]);
+
+  const handleRedo = useCallback(() => {
+    if (!svgContent) return;
+    const next = redo({ svgCode: svgContent, timestamp: Date.now() });
+    if (next) setSvgContent(next.svgCode);
+  }, [svgContent, redo]);
 
   useEffect(() => {
     fetchDesigns(100, 0)
@@ -72,12 +105,46 @@ const App: React.FC = () => {
       });
   }, []);
 
+  const categorizeError = (err: unknown): GenerationError => {
+    if (err instanceof TypeError && (err.message.includes('fetch') || err.message.includes('network'))) {
+      return { type: 'network', message: 'Network error. Check your connection and try again.', retryable: true };
+    }
+    if (err instanceof Error) {
+      const msg = err.message.toLowerCase();
+      if (msg.includes('429') || msg.includes('rate limit')) {
+        return { type: 'rate_limit', message: 'Rate limit reached. Please wait a moment before trying again.', retryable: true };
+      }
+      if (msg.includes('401') || msg.includes('403') || msg.includes('auth') || msg.includes('api key')) {
+        return { type: 'auth', message: 'Authentication failed. Check your API key in Settings.', retryable: false };
+      }
+      if (msg.includes('model') || msg.includes('500')) {
+        return { type: 'model_error', message: `Model error: ${err.message}`, retryable: true };
+      }
+      return { type: 'unknown', message: err.message, retryable: true };
+    }
+    return { type: 'unknown', message: 'An unexpected error occurred.', retryable: true };
+  };
+
   const handleGenerate = async (inputPrompt: string) => {
     setLoading(true);
     setError(null);
+    setLastPrompt(inputPrompt);
     try {
-      const svg = await generateSvg(inputPrompt, selectedStyle, selectedModel, enableLayers, enableAnimation);
-      setSvgContent(svg);
+      let svg: string;
+      try {
+        svg = await generateSvg(inputPrompt, selectedStyle, selectedModel, enableLayers, enableAnimation);
+      } catch (firstErr) {
+        // Auto-retry once for network errors
+        if (firstErr instanceof TypeError && (firstErr.message.includes('fetch') || firstErr.message.includes('network'))) {
+          await new Promise(r => setTimeout(r, 2000));
+          svg = await generateSvg(inputPrompt, selectedStyle, selectedModel, enableLayers, enableAnimation);
+        } else {
+          throw firstErr;
+        }
+      }
+      const cleanSvg = sanitizeSvg(svg);
+      pushCurrentState(); // Save state before overwriting
+      setSvgContent(cleanSvg);
       // Refresh history from backend (which auto-saved the design)
       fetchDesigns(100, 0)
         .then(data => setHistory(data.designs.map(designToHistoryItem)))
@@ -87,7 +154,7 @@ const App: React.FC = () => {
             {
               prompt: inputPrompt,
               style: selectedStyle,
-              svg,
+              svg: cleanSvg,
               timestamp: Date.now(),
               model: selectedModel,
               layersEnabled: enableLayers,
@@ -97,7 +164,7 @@ const App: React.FC = () => {
           ]);
         });
     } catch (err) {
-      setError("Failed to generate SVG. Please try again.");
+      setError(categorizeError(err));
       console.error(err);
     } finally {
       setLoading(false);
@@ -108,24 +175,68 @@ const App: React.FC = () => {
       return await enhancePrompt(currentPrompt);
   };
 
+  const handleRetry = () => {
+    if (lastPrompt) {
+      handleGenerate(lastPrompt);
+    }
+  };
+
+  const handleBatchGenerate = async (inputPrompt: string, count: number = 4) => {
+    setShowVariations(true);
+    const initial: Variation[] = Array.from({ length: count }, (_, i) => ({
+      id: i + 1,
+      svg: null,
+      loading: true,
+      error: null,
+    }));
+    setVariations(initial);
+
+    // Run all generations in parallel
+    const promises = initial.map(async (v) => {
+      try {
+        const svg = await generateSvg(inputPrompt, selectedStyle, selectedModel, enableLayers, enableAnimation);
+        const clean = sanitizeSvg(svg);
+        setVariations(prev => prev.map(item => item.id === v.id ? { ...item, svg: clean, loading: false } : item));
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : 'Generation failed';
+        setVariations(prev => prev.map(item => item.id === v.id ? { ...item, error: msg, loading: false } : item));
+      }
+    });
+    await Promise.allSettled(promises);
+  };
+
+  const handleSelectVariation = (svg: string) => {
+    pushCurrentState();
+    setSvgContent(sanitizeSvg(svg));
+    setShowVariations(false);
+  };
+
   // Called when user edits code manually in the Code View
   const handleManualSvgUpdate = (newSvg: string) => {
-    setSvgContent(newSvg);
+    pushCurrentState();
+    setSvgContent(sanitizeSvg(newSvg));
   };
 
   // Layer Actions
   const handleLayerAction = (action: (currentSvg: string) => string) => {
       if (!svgContent) return;
+      pushCurrentState();
       const newSvg = action(svgContent);
       setSvgContent(newSvg);
   };
+
+  const handleSelectTemplate = useCallback((template: Template) => {
+    setSelectedStyle(template.style);
+    handleGenerate(template.prompt);
+  }, [selectedModel, enableLayers, enableAnimation]);
 
   const handleNewSession = useCallback(() => {
     setSvgContent(null);
     setPrompt('');
     setError(null);
+    clearUndoHistory();
     resetSession(); // fire-and-forget async
-  }, []);
+  }, [clearUndoHistory]);
 
   const handleLoadHistory = (item: HistoryItem) => {
     setSvgContent(item.svg);
@@ -150,6 +261,57 @@ const App: React.FC = () => {
       setTimeout(() => setNotification(null), 2000);
   };
 
+  // Global keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement;
+      const isInputFocused = target.tagName === 'TEXTAREA' || target.tagName === 'INPUT';
+      const mod = e.ctrlKey || e.metaKey;
+
+      if (mod) {
+        switch (e.key.toLowerCase()) {
+          case 'z':
+            e.preventDefault();
+            if (e.shiftKey) handleRedo();
+            else handleUndo();
+            return;
+          case 'y':
+            e.preventDefault();
+            handleRedo();
+            return;
+          case 's':
+            e.preventDefault();
+            // Trigger SVG download via custom event
+            window.dispatchEvent(new CustomEvent(e.shiftKey ? 'app:download-png' : 'app:download-svg'));
+            return;
+          case 'e':
+            if (!isInputFocused) {
+              e.preventDefault();
+              window.dispatchEvent(new CustomEvent('app:toggle-code'));
+            }
+            return;
+          case 'l':
+            if (!isInputFocused) {
+              e.preventDefault();
+              setShowLayers(prev => !prev);
+            }
+            return;
+          case ',':
+            e.preventDefault();
+            setShowSettings(true);
+            return;
+        }
+      }
+
+      if (e.key === 'Escape') {
+        setShowSettings(false);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [handleUndo, handleRedo]);
+
   return (
     <div className="flex flex-col h-screen bg-gray-950 text-white relative">
       <Header onOpenSettings={() => setShowSettings(true)} />
@@ -158,10 +320,22 @@ const App: React.FC = () => {
         onClose={() => setShowSettings(false)}
         onNotification={(msg) => { setNotification(msg); setTimeout(() => setNotification(null), 2000); }}
       />
+      <TemplateGallery
+        isOpen={showTemplates}
+        onClose={() => setShowTemplates(false)}
+        onSelect={handleSelectTemplate}
+      />
+      {showVariations && (
+        <VariationsGrid
+          variations={variations}
+          onSelect={handleSelectVariation}
+          onClose={() => setShowVariations(false)}
+        />
+      )}
 
       {/* Notification Toast */}
       {notification && (
-        <div className="fixed top-20 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white px-4 py-2 rounded-full shadow-2xl border border-gray-700 z-50 flex items-center gap-2 animate-in fade-in slide-in-from-top-2 duration-200">
+        <div className="fixed top-20 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white px-4 py-2 rounded-full shadow-2xl border border-gray-700 z-50 flex items-center gap-2 animate-in fade-in slide-in-from-top-2 duration-200" role="status" aria-live="polite">
             <div className="bg-green-500/20 p-1 rounded-full">
                 <Check className="w-3 h-3 text-green-400" />
             </div>
@@ -169,9 +343,9 @@ const App: React.FC = () => {
         </div>
       )}
 
-      <main className="flex-1 flex overflow-hidden relative">
+      <main className="flex-1 flex overflow-hidden relative" id="main-content">
         {/* Left Sidebar: Controls & History */}
-        <div className="w-80 bg-gray-900 border-r border-gray-800 flex flex-col p-6 overflow-y-auto hidden lg:flex shrink-0 z-20">
+        <nav className="w-80 bg-gray-900 border-r border-gray-800 flex flex-col p-6 overflow-y-auto hidden lg:flex shrink-0 z-20" aria-label="Design controls">
             
             {/* New Session Button */}
             <button 
@@ -258,82 +432,39 @@ const App: React.FC = () => {
                     onEnhance={handleEnhance}
                     loading={loading} 
                     isRefinement={!!svgContent}
+                    onOpenTemplates={() => setShowTemplates(true)}
+                    onBatchGenerate={(p) => handleBatchGenerate(p)}
                 />
             </div>
 
             {/* History / Info */}
-            <div className="flex-1 overflow-y-auto min-h-0">
-                <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider flex items-center gap-2">
-                        <History className="w-4 h-4" />
-                        Session History
-                    </h3>
-                    {history.length > 0 && (
-                        <button onClick={handleClearHistory} className="text-xs text-red-400 hover:text-red-300 flex items-center gap-1 transition-colors">
-                            <Trash2 className="w-3 h-3" /> Clear
-                        </button>
-                    )}
-                </div>
-                
-                <div className="space-y-3">
-                    {history.length === 0 ? (
-                        <div className="text-center py-8 text-gray-600">
-                          <Clock className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                          <p className="text-sm italic">No designs yet.</p>
-                        </div>
-                    ) : (
-                        history.map((item, idx) => (
-                            <button 
-                                key={item.timestamp} 
-                                onClick={() => handleLoadHistory(item)}
-                                onContextMenu={(e) => handleHistoryContextMenu(e, item.prompt)}
-                                title="Right-click to copy prompt"
-                                className={`w-full text-left group p-3 rounded-lg border transition-all duration-200
-                                  ${svgContent === item.svg 
-                                    ? 'bg-gray-800 border-indigo-500/50 ring-1 ring-indigo-500/20' 
-                                    : 'bg-gray-800/30 border-gray-700/50 hover:bg-gray-800 hover:border-gray-600'
-                                  }
-                                `}
-                            >
-                                <div className="flex items-center justify-between mb-1">
-                                  <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
-                                    svgContent === item.svg ? 'bg-indigo-900/50 text-indigo-300' : 'bg-gray-700 text-gray-400'
-                                  }`}>
-                                    {item.style}
-                                  </span>
-                                  <div className="flex items-center gap-1.5">
-                                    {item.layersEnabled && (
-                                      <span title="Smart Layers On">
-                                        <LayersIcon className="w-3 h-3 text-gray-500" />
-                                      </span>
-                                    )}
-                                    {item.animationEnabled && (
-                                      <span title="Animation On">
-                                        <Play className="w-3 h-3 text-gray-500" />
-                                      </span>
-                                    )}
-                                    <span className="flex items-center gap-1 text-[10px] text-gray-600">
-                                      {item.model?.includes('pro') ? <BrainCircuit className="w-3 h-3" /> : <Zap className="w-3 h-3" />}
-                                      {new Date(item.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
-                                    </span>
-                                  </div>
-                                </div>
-                                <p className="text-gray-300 text-sm line-clamp-2 leading-relaxed group-hover:text-white">
-                                  "{item.prompt}"
-                                </p>
-                            </button>
-                        ))
-                    )}
-                </div>
-            </div>
+            <HistoryPanel 
+              history={history}
+              currentSvg={svgContent}
+              onLoad={handleLoadHistory}
+              onClear={handleClearHistory}
+              onCopyPrompt={handleHistoryContextMenu}
+            />
             
             {/* Error Message */}
             {error && (
-                <div className="mt-4 p-3 bg-red-900/20 border border-red-500/30 text-red-300 text-sm rounded-lg">
-                    {error}
+                <div className="mt-4 p-3 bg-red-900/20 border border-red-500/30 rounded-lg space-y-2">
+                    <div className="flex items-center gap-2">
+                      <AlertTriangle className="w-4 h-4 text-red-400 shrink-0" />
+                      <p className="text-red-300 text-sm">{error.message}</p>
+                    </div>
+                    {error.retryable && lastPrompt && (
+                      <button
+                        onClick={handleRetry}
+                        disabled={loading}
+                        className="flex items-center gap-1.5 px-3 py-1.5 bg-red-600 hover:bg-red-500 text-white text-xs font-medium rounded-lg transition-colors disabled:opacity-50"
+                      >
+                        <RotateCw className="w-3 h-3" /> Retry
+                      </button>
+                    )}
                 </div>
             )}
-        </div>
+        </nav>
 
         {/* Right / Main: Preview Area */}
         <div className="flex-1 p-4 sm:p-6 flex flex-col min-w-0 bg-gray-950 relative z-10">
@@ -344,15 +475,23 @@ const App: React.FC = () => {
                 onManualUpdate={handleManualSvgUpdate}
                 showLayers={showLayers}
                 onToggleLayers={() => setShowLayers(!showLayers)}
+                error={error}
+                onRetry={lastPrompt ? handleRetry : undefined}
+                canUndo={canUndo}
+                canRedo={canRedo}
+                onUndo={handleUndo}
+                onRedo={handleRedo}
               />
               
                {/* Mobile Only Input (since sidebar is hidden on mobile) */}
-                <div className="lg:hidden mt-4 space-y-4">
+                <div className="lg:hidden mt-4 space-y-4 pb-20">
+                    {/* Mobile: Input always visible at top */}
                     <div className="flex gap-2">
                         <button 
                         onClick={handleNewSession}
                         className="bg-indigo-600 text-white p-2 rounded-xl flex-shrink-0"
                         title="New Design"
+                        aria-label="New design"
                         >
                         <Plus className="w-6 h-6" />
                         </button>
@@ -362,84 +501,118 @@ const App: React.FC = () => {
                             onEnhance={handleEnhance}
                             loading={loading} 
                             isRefinement={!!svgContent}
+                            onOpenTemplates={() => setShowTemplates(true)}
+                            onBatchGenerate={(p) => handleBatchGenerate(p)}
                         />
                         </div>
                     </div>
 
-                     {/* Mobile Model Selector & Layers */}
-                    <div className="flex flex-col gap-2">
-                        <div className="flex bg-gray-800/50 p-1 rounded-xl border border-gray-700">
-                            <button 
-                                onClick={() => setSelectedModel('gemini-3-flash-preview')}
-                                disabled={loading}
-                                className={`flex-1 py-1.5 px-2 text-xs font-medium rounded-lg flex items-center justify-center gap-2 transition-all ${
-                                    selectedModel === 'gemini-3-flash-preview' 
-                                    ? 'bg-gray-700 text-white shadow-sm ring-1 ring-gray-600' 
-                                    : 'text-gray-400 hover:text-gray-200'
-                                }`}
-                            >
-                                <Zap className="w-3 h-3" /> Flash
-                            </button>
-                            <button 
-                                onClick={() => setSelectedModel('gemini-3.1-pro-preview')}
-                                disabled={loading}
-                                className={`flex-1 py-1.5 px-2 text-xs font-medium rounded-lg flex items-center justify-center gap-2 transition-all ${
-                                    selectedModel === 'gemini-3.1-pro-preview' 
-                                    ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-900/30' 
-                                    : 'text-gray-400 hover:text-gray-200'
-                                }`}
-                            >
-                                <BrainCircuit className="w-3 h-3" /> Pro
-                            </button>
-                        </div>
-                        <div className="grid grid-cols-2 gap-2">
-                            <div className="flex items-center justify-between bg-gray-800/30 px-3 py-2 rounded-xl border border-gray-700/50">
-                                <div className="flex items-center gap-2">
-                                    <LayersIcon className="w-3 h-3 text-gray-400" />
-                                    <span className="text-xs font-medium text-gray-300">Layers</span>
-                                </div>
-                                <button
-                                    onClick={() => setEnableLayers(!enableLayers)}
-                                    disabled={loading}
-                                    className={`w-8 h-4 rounded-full relative transition-colors duration-200 ${enableLayers ? 'bg-indigo-600' : 'bg-gray-700'}`}
-                                >
-                                    <div className={`absolute top-0.5 left-0.5 w-3 h-3 bg-white rounded-full transition-transform duration-200 ${enableLayers ? 'translate-x-4' : ''}`} />
-                                </button>
-                            </div>
-                            <div className="flex items-center justify-between bg-gray-800/30 px-3 py-2 rounded-xl border border-gray-700/50">
-                                <div className="flex items-center gap-2">
-                                    <Play className="w-3 h-3 text-gray-400" />
-                                    <span className="text-xs font-medium text-gray-300">Animate</span>
-                                </div>
-                                <button
-                                    onClick={() => setEnableAnimation(!enableAnimation)}
-                                    disabled={loading}
-                                    className={`w-8 h-4 rounded-full relative transition-colors duration-200 ${enableAnimation ? 'bg-indigo-600' : 'bg-gray-700'}`}
-                                >
-                                    <div className={`absolute top-0.5 left-0.5 w-3 h-3 bg-white rounded-full transition-transform duration-200 ${enableAnimation ? 'translate-x-4' : ''}`} />
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div className="overflow-x-auto pb-2">
-                        <StyleSelector 
-                            selectedStyle={selectedStyle} 
-                            onSelect={setSelectedStyle} 
-                            disabled={loading}
+                    {/* Mobile tab content */}
+                    {mobileTab === 'layers' && (
+                      <div className="bg-gray-900 rounded-xl border border-gray-800 max-h-[50vh] overflow-y-auto">
+                        <LayerPanel
+                          svgContent={svgContent}
+                          onUpdate={setSvgContent}
+                          onToggleVisibility={(idx) => handleLayerAction(svg => toggleLayerVisibility(svg, idx))}
+                          onReorder={(idx, dir) => handleLayerAction(svg => reorderLayer(svg, idx, dir))}
+                          onGroup={(indices) => handleLayerAction(svg => groupLayers(svg, indices))}
+                          onUngroup={(idx) => handleLayerAction(svg => ungroupLayer(svg, idx))}
+                          onDelete={(idx) => handleLayerAction(svg => deleteLayer(svg, idx))}
                         />
-                    </div>
+                      </div>
+                    )}
+
+                    {mobileTab === 'history' && (
+                      <div className="bg-gray-900 rounded-xl border border-gray-800 max-h-[50vh] overflow-y-auto p-4">
+                        <HistoryPanel
+                          history={history}
+                          currentSvg={svgContent}
+                          onLoad={handleLoadHistory}
+                          onClear={handleClearHistory}
+                          onCopyPrompt={handleHistoryContextMenu}
+                        />
+                      </div>
+                    )}
+
+                    {(mobileTab === 'preview' || mobileTab === 'code') && (
+                      <>
+                        {/* Mobile Model Selector & Layers */}
+                        <div className="flex flex-col gap-2">
+                            <div className="flex bg-gray-800/50 p-1 rounded-xl border border-gray-700">
+                                <button 
+                                    onClick={() => setSelectedModel('gemini-3-flash-preview')}
+                                    disabled={loading}
+                                    className={`flex-1 py-1.5 px-2 text-xs font-medium rounded-lg flex items-center justify-center gap-2 transition-all ${
+                                        selectedModel === 'gemini-3-flash-preview' 
+                                        ? 'bg-gray-700 text-white shadow-sm ring-1 ring-gray-600' 
+                                        : 'text-gray-400 hover:text-gray-200'
+                                    }`}
+                                >
+                                    <Zap className="w-3 h-3" /> Flash
+                                </button>
+                                <button 
+                                    onClick={() => setSelectedModel('gemini-3.1-pro-preview')}
+                                    disabled={loading}
+                                    className={`flex-1 py-1.5 px-2 text-xs font-medium rounded-lg flex items-center justify-center gap-2 transition-all ${
+                                        selectedModel === 'gemini-3.1-pro-preview' 
+                                        ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-900/30' 
+                                        : 'text-gray-400 hover:text-gray-200'
+                                    }`}
+                                >
+                                    <BrainCircuit className="w-3 h-3" /> Pro
+                                </button>
+                            </div>
+                            <div className="grid grid-cols-2 gap-2">
+                                <div className="flex items-center justify-between bg-gray-800/30 px-3 py-2 rounded-xl border border-gray-700/50">
+                                    <div className="flex items-center gap-2">
+                                        <LayersIcon className="w-3 h-3 text-gray-400" />
+                                        <span className="text-xs font-medium text-gray-300">Layers</span>
+                                    </div>
+                                    <button
+                                        onClick={() => setEnableLayers(!enableLayers)}
+                                        disabled={loading}
+                                        className={`w-8 h-4 rounded-full relative transition-colors duration-200 ${enableLayers ? 'bg-indigo-600' : 'bg-gray-700'}`}
+                                    >
+                                        <div className={`absolute top-0.5 left-0.5 w-3 h-3 bg-white rounded-full transition-transform duration-200 ${enableLayers ? 'translate-x-4' : ''}`} />
+                                    </button>
+                                </div>
+                                <div className="flex items-center justify-between bg-gray-800/30 px-3 py-2 rounded-xl border border-gray-700/50">
+                                    <div className="flex items-center gap-2">
+                                        <Play className="w-3 h-3 text-gray-400" />
+                                        <span className="text-xs font-medium text-gray-300">Animate</span>
+                                    </div>
+                                    <button
+                                        onClick={() => setEnableAnimation(!enableAnimation)}
+                                        disabled={loading}
+                                        className={`w-8 h-4 rounded-full relative transition-colors duration-200 ${enableAnimation ? 'bg-indigo-600' : 'bg-gray-700'}`}
+                                    >
+                                        <div className={`absolute top-0.5 left-0.5 w-3 h-3 bg-white rounded-full transition-transform duration-200 ${enableAnimation ? 'translate-x-4' : ''}`} />
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div className="overflow-x-auto pb-2">
+                            <StyleSelector 
+                                selectedStyle={selectedStyle} 
+                                onSelect={setSelectedStyle} 
+                                disabled={loading}
+                            />
+                        </div>
+                      </>
+                    )}
                 </div>
           </div>
           
         </div>
 
         {/* Right Sidebar: Layers */}
-        <div 
+        <aside 
             className={`
                 fixed inset-y-0 right-0 w-72 bg-gray-900 border-l border-gray-800 transform transition-transform duration-300 ease-in-out z-30 lg:relative lg:translate-x-0
                 ${showLayers ? 'translate-x-0' : 'translate-x-full lg:hidden'}
             `}
+            aria-label="Layer controls"
         >
             <LayerPanel 
                 svgContent={svgContent}
@@ -450,8 +623,18 @@ const App: React.FC = () => {
                 onUngroup={(idx) => handleLayerAction(svg => ungroupLayer(svg, idx))}
                 onDelete={(idx) => handleLayerAction(svg => deleteLayer(svg, idx))}
             />
-        </div>
+        </aside>
 
+        <MobileTabBar
+          activeTab={mobileTab}
+          onTabChange={setMobileTab}
+          onGenerate={() => {
+            setMobileTab('preview');
+            // Scroll to top where input is on mobile
+            document.getElementById('main-content')?.scrollTo({ top: 0, behavior: 'smooth' });
+          }}
+          loading={loading}
+        />
       </main>
     </div>
   );

@@ -28,8 +28,11 @@ export interface APIKeyInfo {
 
 // Design History API
 
-export const fetchDesigns = async (limit = 50, offset = 0): Promise<DesignList> => {
-  const response = await fetch(`/api/designs?limit=${limit}&offset=${offset}`);
+export const fetchDesigns = async (limit = 50, offset = 0, style?: string, query?: string): Promise<DesignList> => {
+  const params = new URLSearchParams({ limit: String(limit), offset: String(offset) });
+  if (style) params.set('style', style);
+  if (query) params.set('q', query);
+  const response = await fetch(`/api/designs?${params}`);
   if (!response.ok) {
     throw new Error('Failed to fetch designs');
   }

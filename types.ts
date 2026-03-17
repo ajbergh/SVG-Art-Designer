@@ -10,7 +10,15 @@ export enum ArtStyle {
   PIXEL = 'Pixel Art'
 }
 
-export type GeminiModel = 'gemini-3-flash-preview' | 'gemini-3-pro-preview';
+export type GeminiModel = 'gemini-3-flash-preview' | 'gemini-3.1-pro-preview';
+
+export type PreviewBackground = 'checkerboard' | 'white' | 'dark' | 'transparent';
+
+export interface GenerationError {
+  type: 'rate_limit' | 'auth' | 'network' | 'model_error' | 'unknown';
+  message: string;
+  retryable: boolean;
+}
 
 export interface ChatMessage {
   role: 'user' | 'model';

@@ -1,14 +1,16 @@
 import React, { useState, KeyboardEvent } from 'react';
-import { Send, Sparkles, Wand2 } from 'lucide-react';
+import { Send, Sparkles, Wand2, LayoutGrid, Layers } from 'lucide-react';
 
 interface InputSectionProps {
   onGenerate: (prompt: string) => void;
   onEnhance: (prompt: string) => Promise<string>;
   loading: boolean;
   isRefinement: boolean;
+  onOpenTemplates?: () => void;
+  onBatchGenerate?: (prompt: string) => void;
 }
 
-const InputSection: React.FC<InputSectionProps> = ({ onGenerate, onEnhance, loading, isRefinement }) => {
+const InputSection: React.FC<InputSectionProps> = ({ onGenerate, onEnhance, loading, isRefinement, onOpenTemplates, onBatchGenerate }) => {
   const [prompt, setPrompt] = useState('');
   const [isEnhancing, setIsEnhancing] = useState(false);
 
@@ -54,6 +56,30 @@ const InputSection: React.FC<InputSectionProps> = ({ onGenerate, onEnhance, load
         {/* Actions Toolbar positioned absolute bottom right */}
         <div className="absolute bottom-3 right-3 flex items-center gap-2">
             
+            {/* Templates Button */}
+            {onOpenTemplates && !isRefinement && (
+                <button
+                    onClick={onOpenTemplates}
+                    disabled={loading}
+                    className="p-2 rounded-lg bg-gray-800 text-indigo-400 hover:bg-indigo-900/30 hover:text-indigo-300 transition-colors border border-gray-700"
+                    title="Browse templates"
+                >
+                    <LayoutGrid className="w-4 h-4" />
+                </button>
+            )}
+
+            {/* Batch Generate Button */}
+            {onBatchGenerate && prompt.trim().length > 3 && !isRefinement && (
+                <button
+                    onClick={() => { onBatchGenerate(prompt); setPrompt(''); }}
+                    disabled={loading || isEnhancing}
+                    className="p-2 rounded-lg bg-gray-800 text-amber-400 hover:bg-amber-900/30 hover:text-amber-300 transition-colors border border-gray-700"
+                    title="Generate 4 variations"
+                >
+                    <Layers className="w-4 h-4" />
+                </button>
+            )}
+
             {/* Enhance Button */}
             {prompt.trim().length > 3 && !isRefinement && (
                 <button

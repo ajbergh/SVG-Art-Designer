@@ -1,8 +1,10 @@
 package handler
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
+	"time"
 
 	"github.com/ajbergh/svg-art-designer/backend/internal/gemini"
 	"github.com/ajbergh/svg-art-designer/backend/internal/model"
@@ -32,6 +34,15 @@ type generateResponse struct {
 	DesignID int64  `json:"design_id"`
 }
 
+// getSessionID extracts the session identifier from the request header.
+// Falls back to the client IP if no header is provided.
+func getSessionID(r *http.Request) string {
+	if id := r.Header.Get("X-Session-ID"); id != "" {
+		return id
+	}
+	return r.RemoteAddr
+}
+
 // Generate creates an SVG via Gemini and auto-saves to the database.
 // POST /api/generate
 func (h *GeminiHandler) Generate(w http.ResponseWriter, r *http.Request) {
@@ -49,7 +60,13 @@ func (h *GeminiHandler) Generate(w http.ResponseWriter, r *http.Request) {
 		req.Model = "gemini-2.0-flash"
 	}
 
-	svg, err := h.client.GenerateSVG(r.Context(), req.Prompt, req.Style, req.Model, req.EnableLayers, req.EnableAnimation)
+	sessionID := getSessionID(r)
+
+	// Use an extended timeout for generation — Pro models can take 60s+.
+	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
+	defer cancel()
+
+	svg, err := h.client.GenerateSVG(ctx, sessionID, req.Prompt, req.Style, req.Model, req.EnableLayers, req.EnableAnimation)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "generation failed: "+err.Error())
 		return
@@ -105,9 +122,10 @@ func (h *GeminiHandler) Enhance(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, enhanceResponse{EnhancedPrompt: enhanced})
 }
 
-// ResetSession clears the Gemini chat session.
+// ResetSession clears the Gemini chat session for the requesting user.
 // POST /api/session/reset
 func (h *GeminiHandler) ResetSession(w http.ResponseWriter, r *http.Request) {
-	h.client.ResetSession()
+	sessionID := getSessionID(r)
+	h.client.ResetSession(sessionID)
 	writeJSON(w, http.StatusOK, map[string]string{"status": "session reset"})
 }
