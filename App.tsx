@@ -345,41 +345,41 @@ const App: React.FC = () => {
 
       <main className="flex-1 flex overflow-hidden relative" id="main-content">
         {/* Left Sidebar: Controls & History */}
-        <nav className="w-80 bg-gray-900 border-r border-gray-800 flex flex-col p-6 overflow-y-auto hidden lg:flex shrink-0 z-20" aria-label="Design controls">
+        <nav className="w-80 bg-gray-950/40 border-r border-gray-900/60 flex flex-col p-6 overflow-y-auto hidden lg:flex shrink-0 z-20 backdrop-blur-md" aria-label="Design controls">
             
             {/* New Session Button */}
             <button 
               onClick={handleNewSession}
               disabled={loading}
-              className="w-full py-3 px-4 bg-indigo-600 hover:bg-indigo-500 disabled:bg-gray-700 disabled:text-gray-500 text-white rounded-xl font-semibold shadow-lg shadow-indigo-900/20 flex items-center justify-center gap-2 mb-6 transition-all hover:scale-[1.02] active:scale-[0.98]"
+              className="w-full py-3 px-4 bg-gradient-to-r from-indigo-600 via-indigo-550 to-violet-600 hover:from-indigo-500 hover:to-violet-500 disabled:bg-gray-800 disabled:text-gray-600 text-white rounded-xl font-bold shadow-lg shadow-indigo-500/10 flex items-center justify-center gap-2 mb-6 transition-all scale-hover"
             >
-              <Plus className="w-5 h-5" />
+              <Plus className="w-4 h-4 text-indigo-200" />
               New Design
             </button>
 
             {/* Model Selector */}
-            <div className="mb-4 bg-gray-800/50 p-1 rounded-xl flex border border-gray-700">
+            <div className="mb-4 bg-gray-800/40 p-1 rounded-xl flex border border-gray-800/80 backdrop-blur-md">
                 <button 
                     onClick={() => setSelectedModel('gemini-3-flash-preview')}
                     disabled={loading}
-                    className={`flex-1 py-2 px-2 text-xs font-medium rounded-lg flex items-center justify-center gap-2 transition-all ${
+                    className={`flex-1 py-2 px-2 text-xs font-semibold rounded-lg flex items-center justify-center gap-1.5 transition-all ${
                         selectedModel === 'gemini-3-flash-preview' 
-                        ? 'bg-gray-700 text-white shadow-sm ring-1 ring-gray-600' 
-                        : 'text-gray-400 hover:text-gray-200'
+                        ? 'bg-gray-800 text-white shadow-inner ring-1 ring-gray-700' 
+                        : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800/20'
                     }`}
                 >
-                    <Zap className="w-3 h-3" /> Flash
+                    <Zap className="w-3.5 h-3.5 text-amber-400 fill-amber-400/20" /> Flash
                 </button>
                 <button 
-                    onClick={() => setSelectedModel('gemini-3.1-pro-preview')}
+                    onClick={() => setSelectedModel('gemini-3.5-flash-preview')}
                     disabled={loading}
-                    className={`flex-1 py-2 px-2 text-xs font-medium rounded-lg flex items-center justify-center gap-2 transition-all ${
-                        selectedModel === 'gemini-3.1-pro-preview' 
-                        ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-900/30' 
-                        : 'text-gray-400 hover:text-gray-200'
+                    className={`flex-1 py-2 px-2 text-xs font-semibold rounded-lg flex items-center justify-center gap-1.5 transition-all ${
+                        selectedModel === 'gemini-3.5-flash-preview' 
+                        ? 'bg-gradient-to-r from-violet-600 to-indigo-600 text-white shadow-lg shadow-indigo-500/20 ring-1 ring-indigo-400/30' 
+                        : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800/20'
                     }`}
                 >
-                    <BrainCircuit className="w-3 h-3" /> Pro
+                    <BrainCircuit className="w-3.5 h-3.5 text-violet-300" /> 3.5 Flash
                 </button>
             </div>
 
@@ -538,28 +538,28 @@ const App: React.FC = () => {
                       <>
                         {/* Mobile Model Selector & Layers */}
                         <div className="flex flex-col gap-2">
-                            <div className="flex bg-gray-800/50 p-1 rounded-xl border border-gray-700">
+                            <div className="flex bg-gray-800/40 p-1 rounded-xl border border-gray-800/80 backdrop-blur-md">
                                 <button 
                                     onClick={() => setSelectedModel('gemini-3-flash-preview')}
                                     disabled={loading}
-                                    className={`flex-1 py-1.5 px-2 text-xs font-medium rounded-lg flex items-center justify-center gap-2 transition-all ${
+                                    className={`flex-1 py-1.5 px-2 text-xs font-semibold rounded-lg flex items-center justify-center gap-1.5 transition-all ${
                                         selectedModel === 'gemini-3-flash-preview' 
-                                        ? 'bg-gray-700 text-white shadow-sm ring-1 ring-gray-600' 
+                                        ? 'bg-gray-800 text-white shadow-inner ring-1 ring-gray-700' 
                                         : 'text-gray-400 hover:text-gray-200'
                                     }`}
                                 >
-                                    <Zap className="w-3 h-3" /> Flash
+                                    <Zap className="w-3.5 h-3.5 text-amber-400 fill-amber-400/20" /> Flash
                                 </button>
                                 <button 
-                                    onClick={() => setSelectedModel('gemini-3.1-pro-preview')}
+                                    onClick={() => setSelectedModel('gemini-3.5-flash-preview')}
                                     disabled={loading}
-                                    className={`flex-1 py-1.5 px-2 text-xs font-medium rounded-lg flex items-center justify-center gap-2 transition-all ${
-                                        selectedModel === 'gemini-3.1-pro-preview' 
-                                        ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-900/30' 
+                                    className={`flex-1 py-1.5 px-2 text-xs font-semibold rounded-lg flex items-center justify-center gap-1.5 transition-all ${
+                                        selectedModel === 'gemini-3.5-flash-preview' 
+                                        ? 'bg-gradient-to-r from-violet-600 to-indigo-600 text-white shadow-lg shadow-indigo-500/20 ring-1 ring-indigo-400/30' 
                                         : 'text-gray-400 hover:text-gray-200'
                                     }`}
                                 >
-                                    <BrainCircuit className="w-3 h-3" /> Pro
+                                    <BrainCircuit className="w-3.5 h-3.5 text-violet-300" /> 3.5 Flash
                                 </button>
                             </div>
                             <div className="grid grid-cols-2 gap-2">

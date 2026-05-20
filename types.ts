@@ -10,7 +10,7 @@ export enum ArtStyle {
   PIXEL = 'Pixel Art'
 }
 
-export type GeminiModel = 'gemini-3-flash-preview' | 'gemini-3.1-pro-preview';
+export type GeminiModel = 'gemini-3-flash-preview' | 'gemini-3.5-flash-preview';
 
 export type PreviewBackground = 'checkerboard' | 'white' | 'dark' | 'transparent';
 

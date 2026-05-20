@@ -145,10 +145,24 @@ Output ONLY the enhanced prompt string.`, originalPrompt)
 	return strings.TrimSpace(text), nil
 }
 
+// MapModel translates client-provided model names (which might be fictional placeholders)
+// to actual, active models in the official Google Gemini API.
+func MapModel(model string) string {
+	switch model {
+	case "gemini-3-flash-preview":
+		return "gemini-1.5-flash"
+	case "gemini-3.5-flash-preview":
+		return "gemini-2.0-flash"
+	default:
+		return model
+	}
+}
+
 func (c *Client) ensureSession(ctx context.Context, sessionID, model string, enableLayers, enableAnimation bool) error {
+	actualModel := MapModel(model)
 	entry, exists := c.sessions[sessionID]
 	needsNew := !exists ||
-		entry.model != model ||
+		entry.model != actualModel ||
 		entry.layers == nil || *entry.layers != enableLayers ||
 		entry.animation == nil || *entry.animation != enableAnimation
 
@@ -170,7 +184,7 @@ func (c *Client) ensureSession(ctx context.Context, sessionID, model string, ena
 		sysInstruction += animationInstruction
 	}
 
-	genModel := client.GenerativeModel(model)
+	genModel := client.GenerativeModel(actualModel)
 	genModel.SetTemperature(0.4)
 	genModel.SystemInstruction = &genai.Content{
 		Parts: []genai.Part{genai.Text(sysInstruction)},
@@ -178,7 +192,7 @@ func (c *Client) ensureSession(ctx context.Context, sessionID, model string, ena
 
 	c.sessions[sessionID] = &sessionEntry{
 		session:      genModel.StartChat(),
-		model:        model,
+		model:        actualModel,
 		layers:       &enableLayers,
 		animation:    &enableAnimation,
 		lastAccessed: time.Now(),

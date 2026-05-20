@@ -1,0 +1,163 @@
+/* 
+  SVG Art Designer Premium Design System
+  Implements rich aesthetics, glowing inputs, glassmorphic panels, and beautiful micro-animations.
+*/
+
+:root {
+  --color-violet-glow: rgba(139, 92, 246, 0.15);
+  --color-indigo-glow: rgba(99, 102, 241, 0.2);
+  --color-amber-glow: rgba(245, 158, 11, 0.15);
+  --glass-bg: rgba(17, 24, 39, 0.7);
+  --glass-border: rgba(255, 255, 255, 0.08);
+  --glass-border-glow: rgba(99, 102, 241, 0.35);
+}
+
+/* Glassmorphism Styles */
+.glass-header {
+  background: rgba(3, 7, 18, 0.7) !important;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-bottom: 1px solid var(--glass-border);
+}
+
+.glass-panel {
+  background: var(--glass-bg);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--glass-border);
+  transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.glass-panel:hover {
+  border-color: rgba(99, 102, 241, 0.2);
+  box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.5), 0 0 20px 0 rgba(99, 102, 241, 0.03);
+}
+
+/* Premium Glowing Focus States */
+.glow-focus-within {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.glow-focus-within:focus-within {
+  border-color: var(--glass-border-glow) !important;
+  box-shadow: 0 0 30px 2px var(--color-indigo-glow), inset 0 0 12px 1px rgba(99, 102, 241, 0.1) !important;
+  transform: translateY(-2px);
+}
+
+/* 3D-like Scale Lift Hover Transitions */
+.scale-hover {
+  transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.scale-hover:hover:not(:disabled) {
+  transform: translateY(-3px) scale(1.02);
+  box-shadow: 0 12px 24px -6px rgba(99, 102, 241, 0.25), 0 0 16px 0 rgba(99, 102, 241, 0.1);
+}
+
+.scale-hover:active:not(:disabled) {
+  transform: translateY(0px) scale(0.98);
+}
+
+/* Micro-animations */
+
+/* Rotating Settings Gear on Hover */
+@keyframes spin-gear {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(180deg); }
+}
+
+.rotate-hover-container:hover .rotate-hover {
+  animation: spin-gear 1.2s cubic-bezier(0.34, 1.56, 0.64, 1) infinite;
+}
+
+/* Soft Glow Pulse for active badges */
+@keyframes pulse-soft-glow {
+  0%, 100% {
+    box-shadow: 0 0 4px 0 rgba(99, 102, 241, 0.2), 0 0 0 1px rgba(99, 102, 241, 0.2);
+    border-color: rgba(99, 102, 241, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 16px 4px rgba(99, 102, 241, 0.45), 0 0 0 2px rgba(99, 102, 241, 0.3);
+    border-color: rgba(99, 102, 241, 0.6);
+  }
+}
+
+.pulse-glow-badge {
+  animation: pulse-soft-glow 3s infinite ease-in-out;
+}
+
+/* Soft pulse for loader */
+@keyframes pulse-scale {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 0.9;
+  }
+  50% {
+    transform: scale(1.03);
+    opacity: 1;
+    filter: drop-shadow(0 0 8px rgba(99, 102, 241, 0.3));
+  }
+}
+
+.pulse-loader {
+  animation: pulse-scale 2s infinite ease-in-out;
+}
+
+/* Slide and Fade Notification Transition */
+@keyframes slide-fade {
+  0% {
+    transform: translate(-50%, -10px);
+    opacity: 0;
+  }
+  100% {
+    transform: translate(-50%, 0);
+    opacity: 1;
+  }
+}
+
+.notification-toast {
+  animation: slide-fade 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Premium Style Option Selection Overlays */
+.style-card {
+  position: relative;
+  overflow: hidden;
+  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+
+.style-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.15) 0%, rgba(139, 92, 246, 0.15) 100%);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  z-index: 0;
+}
+
+.style-card:hover::before {
+  opacity: 1;
+}
+
+.style-card-selected {
+  border-color: #6366f1 !important;
+  background: linear-gradient(135deg, #4f46e5 0%, #3730a3 100%) !important;
+  box-shadow: 0 10px 25px -5px rgba(79, 70, 229, 0.4), 0 0 15px 0 rgba(79, 70, 229, 0.2) !important;
+  transform: scale(1.04) translateY(-2px);
+}
+
+.style-card > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* Custom Textarea styling */
+textarea::-webkit-input-placeholder {
+  color: #4b5563;
+  transition: color 0.2s ease;
+}
+
+textarea:focus::-webkit-input-placeholder {
+  color: #6b7280;
+}
