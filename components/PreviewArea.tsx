@@ -1,11 +1,106 @@
 import React, { useEffect, useState, useMemo, useCallback, useRef } from 'react';
-import { Download, Copy, RefreshCw, ZoomIn, ZoomOut, Check, Code, Eye, Image as ImageIcon, Layout, AlertTriangle, RotateCw, Grid3X3, Sun, Moon, Undo2, Redo2, Maximize, Minimize2, Share } from 'lucide-react';
+import { Download, Copy, RefreshCw, ZoomIn, ZoomOut, Check, Code, Eye, Image as ImageIcon, Layout, AlertTriangle, RotateCw, Grid3X3, Sun, Moon, Undo2, Redo2, Maximize, Minimize2, Share, Ruler, Palette } from 'lucide-react';
 import { sanitizeSvg } from '../utils/svgSanitizer';
 import { optimizeSvg } from '../utils/svgOptimizer';
 import ExportDialog from './ExportDialog';
 import type { GenerationError, PreviewBackground } from '../types';
 
 const SvgCodeEditor = React.lazy(() => import('./SvgCodeEditor'));
+
+interface ColorSwatchProps {
+  color: string;
+}
+
+const ColorSwatch: React.FC<ColorSwatchProps> = ({ color }) => {
+  const [copied, setCopied] = useState(false);
+  const [hovered, setHovered] = useState(false);
+
+  const handleCopy = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    navigator.clipboard.writeText(color);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  };
+
+  const isLight = color === 'white' || color === '#ffffff' || color === '#fff' || color.startsWith('rgb(255,255,255') || color === 'yellow' || color === '#ffff00';
+
+  return (
+    <div className="relative group">
+      <button
+        onClick={handleCopy}
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
+        className="w-7 h-7 rounded-full border transition-all duration-200 cursor-pointer flex items-center justify-center scale-hover relative shadow-md"
+        style={{
+          backgroundColor: color,
+          borderColor: isLight ? '#4b5563' : 'rgba(255,255,255,0.15)',
+          boxShadow: hovered ? `0 0 14px ${color}` : '0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06)'
+        }}
+        title={`Copy ${color}`}
+      >
+        <span className="sr-only">Color {color}</span>
+      </button>
+
+      <div 
+        className={`absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2.5 py-1 text-[10px] font-medium font-mono text-white rounded bg-gray-950 border border-gray-800 shadow-xl transition-all duration-200 pointer-events-none z-50 whitespace-nowrap ${
+          hovered || copied ? 'opacity-100 translate-y-0 visible' : 'opacity-0 translate-y-1 invisible'
+        }`}
+      >
+        {copied ? (
+          <span className="text-green-400 font-bold flex items-center gap-1">
+            <Check className="w-3 h-3" /> Copied!
+          </span>
+        ) : (
+          color
+        )}
+      </div>
+    </div>
+  );
+};
+
+const extractSvgColors = (svg: string | null): string[] => {
+  if (!svg) return [];
+  const colorSet = new Set<string>();
+  
+  // 1. Hex colors
+  const hexRegex = /#(?:[0-9a-fA-F]{3,4}){1,2}\b/g;
+  let match;
+  while ((match = hexRegex.exec(svg)) !== null) {
+    colorSet.add(match[0].toLowerCase());
+  }
+  
+  // 2. RGB/RGBA colors
+  const rgbRegex = /rgba?\(\s*\d+\s*,\s*\d+\s*,\s*\d+(?:\s*,\s*[\d\.]+)?\s*\)/g;
+  while ((match = rgbRegex.exec(svg)) !== null) {
+    colorSet.add(match[0].toLowerCase());
+  }
+
+  // 3. Named colors in fill, stroke, stop-color, color attributes
+  const attrRegex = /(?:fill|stroke|stop-color|color)\s*=\s*["']\s*([^"'\s#\(\)]+)\s*["']/gi;
+  while ((match = attrRegex.exec(svg)) !== null) {
+    const colorVal = match[1].toLowerCase().trim();
+    if (colorVal && colorVal !== 'none' && colorVal !== 'transparent' && colorVal !== 'inherit' && !colorVal.startsWith('url')) {
+      if (/^[a-z]{3,20}$/i.test(colorVal)) {
+        colorSet.add(colorVal);
+      }
+    }
+  }
+  
+  return Array.from(colorSet).filter(c => c.length > 2 && c.length < 30).slice(0, 16);
+};
+
+const LOADING_PHRASES = [
+  "Weaving cubic Bézier curves...",
+  "Aligning coordinate anchors to the golden ratio...",
+  "Brewing organic CSS linear gradients...",
+  "Persuading Gemini to think like Leonardo da Vinci...",
+  "Structuring viewport matrix dimensions...",
+  "Calculating pixel-perfect path math...",
+  "Splining curves for maximum aerodynamic flow...",
+  "Polishing the SVG viewBox canvas...",
+  "Optimizing vector node path segments...",
+  "Applying beautiful math to vector coordinates..."
+];
 
 interface PreviewAreaProps {
   svgContent: string | null;
@@ -30,6 +125,8 @@ const PreviewArea: React.FC<PreviewAreaProps> = ({ svgContent, loading, onManual
   const [optimizeNotice, setOptimizeNotice] = useState<string | null>(null);
   const [showExport, setShowExport] = useState(false);
   const [exportNotice, setExportNotice] = useState<string | null>(null);
+  const [gridVisible, setGridVisible] = useState(false);
+  const [loadingPhraseIndex, setLoadingPhraseIndex] = useState(0);
   
   // Pan & Zoom state
   const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
@@ -118,6 +215,66 @@ const PreviewArea: React.FC<PreviewAreaProps> = ({ svgContent, loading, onManual
     setZoom(1);
     setPanOffset({ x: 0, y: 0 });
   }, []);
+
+  // Loading phrase sequence interval
+  useEffect(() => {
+    if (!loading) return;
+    setLoadingPhraseIndex(0);
+    const interval = setInterval(() => {
+      setLoadingPhraseIndex(prev => (prev + 1) % LOADING_PHRASES.length);
+    }, 1800);
+    return () => clearInterval(interval);
+  }, [loading]);
+
+  // Robust SVG dimensions parser
+  const svgDimensions = useMemo(() => {
+    if (!svgContent) return { width: 512, height: 512 };
+    
+    let width = 512;
+    let height = 512;
+    
+    const widthMatch = svgContent.match(/width=["']\s*([\d\.-]+)(?:px)?\s*["']/i);
+    const heightMatch = svgContent.match(/height=["']\s*([\d\.-]+)(?:px)?\s*["']/i);
+    
+    if (widthMatch) width = Math.round(parseFloat(widthMatch[1]));
+    if (heightMatch) height = Math.round(parseFloat(heightMatch[1]));
+    
+    if (!widthMatch || !heightMatch) {
+      const viewBoxMatch = svgContent.match(/viewBox=["']\s*([\d\.-]+)\s+([\d\.-]+)\s+([\d\.-]+)\s+([\d\.-]+)\s*["']/i);
+      if (viewBoxMatch) {
+        const vbW = Math.round(parseFloat(viewBoxMatch[3]));
+        const vbH = Math.round(parseFloat(viewBoxMatch[4]));
+        if (!widthMatch) width = vbW;
+        if (!heightMatch) height = vbH;
+      }
+    }
+    
+    if (isNaN(width) || width <= 0) width = 512;
+    if (isNaN(height) || height <= 0) height = 512;
+    
+    return { width, height };
+  }, [svgContent]);
+
+  // Ruler ticks coordinates generator (every 50px)
+  const rulerTicks = useMemo(() => {
+    const ticksX = [];
+    const ticksY = [];
+    const step = 50;
+    
+    for (let x = 0; x <= svgDimensions.width; x += step) {
+      ticksX.push(x);
+    }
+    for (let y = 0; y <= svgDimensions.height; y += step) {
+      ticksY.push(y);
+    }
+    
+    return { ticksX, ticksY };
+  }, [svgDimensions]);
+
+  // Extracted SVG color swatches
+  const extractedColors = useMemo(() => {
+    return extractSvgColors(svgContent);
+  }, [svgContent]);
 
   // Ensure the SVG has explicit width/height for rendering in the preview div.
   const renderableSvg = useMemo(() => {
@@ -286,6 +443,17 @@ const PreviewArea: React.FC<PreviewAreaProps> = ({ svgContent, loading, onManual
                         <Moon className="w-3.5 h-3.5" />
                     </button>
                 </div>
+                <button 
+                  onClick={() => setGridVisible(prev => !prev)} 
+                  className={`p-1.5 rounded transition-all border flex items-center justify-center ${
+                    gridVisible 
+                      ? 'bg-cyan-950/80 border-cyan-500/80 text-cyan-400 shadow-[0_0_12px_rgba(6,182,212,0.3)] animate-pulse' 
+                      : 'bg-gray-900 border-gray-700 text-gray-400 hover:text-white hover:bg-gray-800'
+                  }`} 
+                  title="Toggle Blueprint Grid & Ruler"
+                >
+                  <Ruler className="w-3.5 h-3.5" />
+                </button>
                 <div className="hidden sm:flex items-center bg-gray-900 rounded-lg p-1 border border-gray-700 mr-2">
                     <button onClick={handleZoomOut} className="p-1.5 hover:bg-gray-700 rounded text-gray-400 hover:text-white" title="Zoom Out">
                         <ZoomOut className="w-4 h-4" />
@@ -359,7 +527,7 @@ const PreviewArea: React.FC<PreviewAreaProps> = ({ svgContent, loading, onManual
              <div className="absolute inset-0 flex items-center justify-center z-20 bg-gray-900/50 backdrop-blur-sm">
                 <div className="flex flex-col items-center">
                     <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-500 mb-4"></div>
-                    <p className="text-indigo-300 font-medium animate-pulse">Designing your artwork...</p>
+                    <p className="text-indigo-300 font-medium animate-pulse">{LOADING_PHRASES[loadingPhraseIndex]}</p>
                 </div>
              </div>
         )}
@@ -383,8 +551,17 @@ const PreviewArea: React.FC<PreviewAreaProps> = ({ svgContent, loading, onManual
              /* Preview Mode */
             <div 
                 ref={containerRef}
-                className={`w-full h-full flex items-center justify-center relative overflow-hidden ${
-                  previewBg === 'white' ? 'bg-white' : previewBg === 'dark' ? 'bg-gray-900' : previewBg === 'transparent' ? 'bg-gray-950' : ''
+                id="canvas-viewport"
+                className={`w-full h-full flex items-center justify-center relative overflow-hidden transition-colors duration-300 ${
+                  gridVisible 
+                    ? 'bg-[#06152d]' 
+                    : previewBg === 'white' 
+                      ? 'bg-white' 
+                      : previewBg === 'dark' 
+                        ? 'bg-gray-900' 
+                        : previewBg === 'transparent' 
+                          ? 'bg-gray-950' 
+                          : 'bg-gray-950'
                 }`}
                 onMouseDown={handlePanMouseDown}
                 onMouseMove={handlePanMouseMove}
@@ -392,7 +569,7 @@ const PreviewArea: React.FC<PreviewAreaProps> = ({ svgContent, loading, onManual
                 onMouseLeave={handlePanMouseUp}
                 style={{ cursor: isPanning ? 'grabbing' : spaceHeld ? 'grab' : 'default' }}
             >
-                {previewBg === 'checkerboard' && (
+                {previewBg === 'checkerboard' && !gridVisible && (
                   <div className="absolute inset-0 pointer-events-none" style={{
                     backgroundImage: 'linear-gradient(45deg, #374151 25%, transparent 25%), linear-gradient(-45deg, #374151 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #374151 75%), linear-gradient(-45deg, transparent 75%, #374151 75%)',
                     backgroundSize: '20px 20px',
@@ -412,10 +589,62 @@ const PreviewArea: React.FC<PreviewAreaProps> = ({ svgContent, loading, onManual
                     }}
                 >
                     <div 
-                    className="bg-transparent shadow-2xl"
-                    style={{ transform: 'translate(-50%, -50%)' }}
-                    dangerouslySetInnerHTML={{ __html: renderableSvg }} 
-                    />
+                    className="bg-transparent shadow-2xl relative"
+                    style={{ 
+                      width: `${svgDimensions.width}px`, 
+                      height: `${svgDimensions.height}px`,
+                      transform: 'translate(-50%, -50%)' 
+                    }}
+                    >
+                      <div dangerouslySetInnerHTML={{ __html: renderableSvg }} className="w-full h-full" />
+                      
+                      {/* Blueprint Grid & Coordinates Overlay */}
+                      {gridVisible && (
+                        <svg className="absolute inset-0 w-full h-full pointer-events-none select-none z-10 overflow-visible">
+                          <defs>
+                            <pattern id="blueprintMinorGrid" width="10" height="10" patternUnits="userSpaceOnUse">
+                              <path d="M 10 0 L 0 0 0 10" fill="none" stroke="#00f0ff" strokeWidth="0.5" opacity="0.12" />
+                            </pattern>
+                            <pattern id="blueprintMajorGrid" width="50" height="50" patternUnits="userSpaceOnUse">
+                              <rect width="50" height="50" fill="url(#blueprintMinorGrid)" />
+                              <path d="M 50 0 L 0 0 0 50" fill="none" stroke="#00f0ff" strokeWidth="1" opacity="0.25" />
+                            </pattern>
+                          </defs>
+                          <rect width="100%" height="100%" fill="url(#blueprintMajorGrid)" />
+                          <rect width="100%" height="100%" fill="none" stroke="#00f0ff" strokeWidth="1.5" opacity="0.5" />
+                          
+                          {/* X Ticks & Labels */}
+                          {rulerTicks.ticksX.map(x => (
+                            <g key={`tx-${x}`} transform={`translate(${x}, 0)`}>
+                              <line x1="0" y1="0" x2="0" y2="8" stroke="#00f0ff" strokeWidth="1" opacity="0.6" />
+                              {x % 100 === 0 && (
+                                <text x="2" y="16" fill="#00f0ff" fontSize="8" fontFamily="Consolas, monospace" opacity="0.8" className="font-bold">
+                                  {x}
+                                </text>
+                              )}
+                            </g>
+                          ))}
+                          
+                          {/* Y Ticks & Labels */}
+                          {rulerTicks.ticksY.map(y => (
+                            <g key={`ty-${y}`} transform={`translate(0, ${y})`}>
+                              <line x1="0" y1="0" x2="8" y2="0" stroke="#00f0ff" strokeWidth="1" opacity="0.6" />
+                              {y % 100 === 0 && (
+                                <text x="10" y="10" fill="#00f0ff" fontSize="8" fontFamily="Consolas, monospace" opacity="0.8" className="font-bold">
+                                  {y}
+                                </text>
+                              )}
+                            </g>
+                          ))}
+                          
+                          {/* Blueprint corner details */}
+                          <path d="M 0,20 L 0,0 L 20,0" fill="none" stroke="#00f0ff" strokeWidth="2.5" />
+                          <path d={`M ${svgDimensions.width - 20},0 L ${svgDimensions.width},0 L ${svgDimensions.width},20`} fill="none" stroke="#00f0ff" strokeWidth="2.5" />
+                          <path d={`M 0,${svgDimensions.height - 20} L 0,${svgDimensions.height} L 20,${svgDimensions.height}`} fill="none" stroke="#00f0ff" strokeWidth="2.5" />
+                          <path d={`M ${svgDimensions.width - 20},${svgDimensions.height} L ${svgDimensions.width},${svgDimensions.height} L ${svgDimensions.width},${svgDimensions.height - 20}`} fill="none" stroke="#00f0ff" strokeWidth="2.5" />
+                        </svg>
+                      )}
+                    </div>
                 </div>
                 )}
             </div>
@@ -434,6 +663,22 @@ const PreviewArea: React.FC<PreviewAreaProps> = ({ svgContent, loading, onManual
             </div>
         )}
       </div>
+
+      {/* Color Palette Swatches Drawer */}
+      {viewMode === 'preview' && extractedColors.length > 0 && (
+        <div id="color-palette-drawer" className="bg-gray-900/95 backdrop-blur-md border-t border-gray-800 px-4 py-3 flex flex-wrap items-center gap-4 shrink-0 transition-all duration-300">
+          <div className="flex items-center gap-2 text-gray-400 text-xs font-semibold uppercase tracking-wider select-none shrink-0">
+            <Palette className="w-3.5 h-3.5 text-indigo-400" />
+            <span>Art Palette</span>
+            <span className="bg-gray-800 text-gray-400 px-1.5 py-0.5 rounded text-[10px] font-medium">{extractedColors.length} colors</span>
+          </div>
+          <div className="flex flex-wrap items-center gap-2.5 overflow-x-auto py-1 scrollbar-none">
+            {extractedColors.map((color, index) => (
+              <ColorSwatch key={`${color}-${index}`} color={color} />
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Export dialog */}
       {svgContent && (

@@ -18,6 +18,10 @@ func TestMapModel(t *testing.T) {
 			expected: "gemini-2.0-flash",
 		},
 		{
+			input:    "gemini-3.1-pro-preview",
+			expected: "gemini-1.5-pro",
+		},
+		{
 			input:    "gemini-2.0-flash",
 			expected: "gemini-2.0-flash",
 		},

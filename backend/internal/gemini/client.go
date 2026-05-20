@@ -153,6 +153,8 @@ func MapModel(model string) string {
 		return "gemini-1.5-flash"
 	case "gemini-3.5-flash-preview":
 		return "gemini-2.0-flash"
+	case "gemini-3.1-pro-preview":
+		return "gemini-1.5-pro"
 	default:
 		return model
 	}

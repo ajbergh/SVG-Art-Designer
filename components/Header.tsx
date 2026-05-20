@@ -30,7 +30,7 @@ const Header: React.FC<HeaderProps> = ({ onOpenSettings }) => {
         </button>
         <div className="hidden sm:block">
           <span className="px-3 py-1.5 text-xs font-bold text-indigo-200 bg-indigo-950/45 rounded-full border border-indigo-500/40 pulse-glow-badge backdrop-blur-sm">
-            Gemini 3.5 Flash Premium
+            Powered by Gemini
           </span>
         </div>
       </div>

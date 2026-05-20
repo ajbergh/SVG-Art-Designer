@@ -96,6 +96,8 @@ const InputSection: React.FC<InputSectionProps> = ({ onGenerate, onEnhance, load
             <button
             onClick={handleSubmit}
             disabled={!prompt.trim() || loading || isEnhancing}
+            title="Generate SVG Design"
+            aria-label="Generate SVG Design"
             className={`
                 p-2.5 rounded-xl flex items-center justify-center scale-hover
                 ${!prompt.trim() || loading || isEnhancing

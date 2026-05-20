@@ -45,7 +45,7 @@ function designToHistoryItem(d: DesignItem): HistoryItem {
 const App: React.FC = () => {
   const [prompt, setPrompt] = useState<string>('');
   const [selectedStyle, setSelectedStyle] = useState<ArtStyle>(ArtStyle.NO_STYLE);
-  const [selectedModel, setSelectedModel] = useState<GeminiModel>('gemini-3-flash-preview');
+  const [selectedModel, setSelectedModel] = useState<GeminiModel>('gemini-3.5-flash-preview');
   const [enableLayers, setEnableLayers] = useState<boolean>(true);
   const [enableAnimation, setEnableAnimation] = useState<boolean>(false);
   const [svgContent, setSvgContent] = useState<string | null>(null);
@@ -360,26 +360,26 @@ const App: React.FC = () => {
             {/* Model Selector */}
             <div className="mb-4 bg-gray-800/40 p-1 rounded-xl flex border border-gray-800/80 backdrop-blur-md">
                 <button 
-                    onClick={() => setSelectedModel('gemini-3-flash-preview')}
-                    disabled={loading}
-                    className={`flex-1 py-2 px-2 text-xs font-semibold rounded-lg flex items-center justify-center gap-1.5 transition-all ${
-                        selectedModel === 'gemini-3-flash-preview' 
-                        ? 'bg-gray-800 text-white shadow-inner ring-1 ring-gray-700' 
-                        : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800/20'
-                    }`}
-                >
-                    <Zap className="w-3.5 h-3.5 text-amber-400 fill-amber-400/20" /> Flash
-                </button>
-                <button 
                     onClick={() => setSelectedModel('gemini-3.5-flash-preview')}
                     disabled={loading}
                     className={`flex-1 py-2 px-2 text-xs font-semibold rounded-lg flex items-center justify-center gap-1.5 transition-all ${
                         selectedModel === 'gemini-3.5-flash-preview' 
+                        ? 'bg-gray-850 text-white shadow-inner ring-1 ring-gray-700' 
+                        : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800/20'
+                    }`}
+                >
+                    <Zap className="w-3.5 h-3.5 text-amber-400 fill-amber-400/20" /> 3.5 Flash
+                </button>
+                <button 
+                    onClick={() => setSelectedModel('gemini-3.1-pro-preview')}
+                    disabled={loading}
+                    className={`flex-1 py-2 px-2 text-xs font-semibold rounded-lg flex items-center justify-center gap-1.5 transition-all ${
+                        selectedModel === 'gemini-3.1-pro-preview' 
                         ? 'bg-gradient-to-r from-violet-600 to-indigo-600 text-white shadow-lg shadow-indigo-500/20 ring-1 ring-indigo-400/30' 
                         : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800/20'
                     }`}
                 >
-                    <BrainCircuit className="w-3.5 h-3.5 text-violet-300" /> 3.5 Flash
+                    <BrainCircuit className="w-3.5 h-3.5 text-violet-300" /> 3.1 Pro
                 </button>
             </div>
 
@@ -540,26 +540,26 @@ const App: React.FC = () => {
                         <div className="flex flex-col gap-2">
                             <div className="flex bg-gray-800/40 p-1 rounded-xl border border-gray-800/80 backdrop-blur-md">
                                 <button 
-                                    onClick={() => setSelectedModel('gemini-3-flash-preview')}
-                                    disabled={loading}
-                                    className={`flex-1 py-1.5 px-2 text-xs font-semibold rounded-lg flex items-center justify-center gap-1.5 transition-all ${
-                                        selectedModel === 'gemini-3-flash-preview' 
-                                        ? 'bg-gray-800 text-white shadow-inner ring-1 ring-gray-700' 
-                                        : 'text-gray-400 hover:text-gray-200'
-                                    }`}
-                                >
-                                    <Zap className="w-3.5 h-3.5 text-amber-400 fill-amber-400/20" /> Flash
-                                </button>
-                                <button 
                                     onClick={() => setSelectedModel('gemini-3.5-flash-preview')}
                                     disabled={loading}
                                     className={`flex-1 py-1.5 px-2 text-xs font-semibold rounded-lg flex items-center justify-center gap-1.5 transition-all ${
                                         selectedModel === 'gemini-3.5-flash-preview' 
+                                        ? 'bg-gray-850 text-white shadow-inner ring-1 ring-gray-700' 
+                                        : 'text-gray-400 hover:text-gray-200'
+                                    }`}
+                                >
+                                    <Zap className="w-3.5 h-3.5 text-amber-400 fill-amber-400/20" /> 3.5 Flash
+                                </button>
+                                <button 
+                                    onClick={() => setSelectedModel('gemini-3.1-pro-preview')}
+                                    disabled={loading}
+                                    className={`flex-1 py-1.5 px-2 text-xs font-semibold rounded-lg flex items-center justify-center gap-1.5 transition-all ${
+                                        selectedModel === 'gemini-3.1-pro-preview' 
                                         ? 'bg-gradient-to-r from-violet-600 to-indigo-600 text-white shadow-lg shadow-indigo-500/20 ring-1 ring-indigo-400/30' 
                                         : 'text-gray-400 hover:text-gray-200'
                                     }`}
                                 >
-                                    <BrainCircuit className="w-3.5 h-3.5 text-violet-300" /> 3.5 Flash
+                                    <BrainCircuit className="w-3.5 h-3.5 text-violet-300" /> 3.1 Pro
                                 </button>
                             </div>
                             <div className="grid grid-cols-2 gap-2">

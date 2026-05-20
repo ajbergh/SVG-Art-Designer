@@ -52,7 +52,7 @@ export const enhancePrompt = async (originalPrompt: string): Promise<string> => 
 export const generateSvg = async (
   prompt: string,
   style: ArtStyle,
-  model: GeminiModel = 'gemini-3-flash-preview',
+  model: GeminiModel = 'gemini-3.5-flash-preview',
   enableLayers: boolean = true,
   enableAnimation: boolean = false
 ): Promise<string> => {
